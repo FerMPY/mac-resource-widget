@@ -65,10 +65,10 @@ shasum -a 256 -c MacResourceWidget.dmg.sha256
 ### Build from source
 
 ```sh
-git clone <repo-url>
+git clone https://github.com/FerMPY/mac-resource-widget.git
 cd mac-resource-widget
-./build.sh           # compiles and assembles MacResourceWidget.app
-open MacResourceWidget.app
+./build.sh                       # compiles and assembles the .app
+open "Mac Resource Widget.app"
 ```
 
 `./package.sh` produces a distributable `MacResourceWidget.dmg`.

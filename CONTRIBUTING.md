@@ -8,10 +8,10 @@ dependency-free project — contributions of all sizes are welcome.
 You need the Swift toolchain (Xcode or the Command Line Tools):
 
 ```sh
-git clone <repo-url>
+git clone https://github.com/FerMPY/mac-resource-widget.git
 cd mac-resource-widget
-./build.sh            # compiles and assembles MacResourceWidget.app
-open MacResourceWidget.app
+./build.sh                       # compiles and assembles the .app
+open "Mac Resource Widget.app"
 ```
 
 `./package.sh` additionally produces a distributable `MacResourceWidget.dmg`.
