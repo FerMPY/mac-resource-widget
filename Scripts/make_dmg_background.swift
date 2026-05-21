@@ -1,9 +1,11 @@
 #!/usr/bin/env swift
 import AppKit
 
-// Draws the installer DMG background: a dark gradient with a title, an
+// Draws the installer DMG background: a light gradient with a title, an
 // instruction line and an arrow pointing from the app icon to the
-// Applications folder. Output is a Retina TIFF (1200x800 px / 600x400 pt).
+// Applications folder. The background is intentionally light — Finder draws
+// the icon labels in dark text, which is only legible on a light backdrop.
+// Output is a Retina TIFF (1200x800 px / 600x400 pt).
 // Run via: swift Scripts/make_dmg_background.swift
 
 let W: CGFloat = 600   // window content size in points
@@ -11,8 +13,8 @@ let H: CGFloat = 400
 let scale = 2          // Retina
 
 let iconYFromTop: CGFloat = 175   // must match icon positions in package.sh
-let appX: CGFloat = 165
-let appsX: CGFloat = 435
+let appX: CGFloat = 155
+let appsX: CGFloat = 445
 
 guard let rep = NSBitmapImageRep(
     bitmapDataPlanes: nil,
@@ -30,10 +32,10 @@ guard let ctx = NSGraphicsContext(bitmapImageRep: rep) else {
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = ctx
 
-// Background gradient — deep navy to near-black, matching the app.
+// Light gradient — soft off-white to light grey.
 NSGradient(colors: [
-    NSColor(srgbRed: 0.13, green: 0.15, blue: 0.24, alpha: 1),
-    NSColor(srgbRed: 0.05, green: 0.06, blue: 0.11, alpha: 1),
+    NSColor(srgbRed: 0.97, green: 0.97, blue: 0.98, alpha: 1),
+    NSColor(srgbRed: 0.89, green: 0.90, blue: 0.93, alpha: 1),
 ])!.draw(in: NSRect(x: 0, y: 0, width: W, height: H), angle: -90)
 
 // Text is drawn in a y-up coordinate space; topFromTop measures from the top.
@@ -45,19 +47,19 @@ func drawCentered(_ s: String, _ attrs: [NSAttributedString.Key: Any], topFromTo
 
 drawCentered("Mac Resource Widget", [
     .font: NSFont.systemFont(ofSize: 25, weight: .bold),
-    .foregroundColor: NSColor.white,
+    .foregroundColor: NSColor(srgbRed: 0.13, green: 0.13, blue: 0.16, alpha: 1),
 ], topFromTop: 44)
 
 drawCentered("Drag the app onto the Applications folder to install", [
     .font: NSFont.systemFont(ofSize: 13, weight: .medium),
-    .foregroundColor: NSColor.white.withAlphaComponent(0.5),
+    .foregroundColor: NSColor(srgbRed: 0.46, green: 0.46, blue: 0.50, alpha: 1),
 ], topFromTop: 79)
 
 // Arrow from the app icon toward the Applications folder.
 let arrowY = H - iconYFromTop                 // y-up
-let x1 = appX + 88                            // just past the app icon
-let x2 = appsX - 88                           // just before the Applications icon
-let accent = NSColor(srgbRed: 0.42, green: 0.86, blue: 0.96, alpha: 0.92)
+let x1 = appX + 98                            // just past the app icon
+let x2 = appsX - 98                           // just before the Applications icon
+let accent = NSColor(srgbRed: 0.20, green: 0.52, blue: 0.86, alpha: 1)
 accent.setStroke()
 accent.setFill()
 

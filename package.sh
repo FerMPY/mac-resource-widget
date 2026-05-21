@@ -35,7 +35,9 @@ RW_DIR="$(mktemp -d)"
 trap 'detach_stale; rm -rf "${STAGE}" "${RW_DIR}"' EXIT
 cp -R "${APP_BUNDLE}" "${STAGE}/"
 ln -s /Applications "${STAGE}/Applications"
-cp "${BG_SRC}" "${STAGE}/.background.tiff"
+# Background image in a hidden .background folder (the DMG convention).
+mkdir "${STAGE}/.background"
+cp "${BG_SRC}" "${STAGE}/.background/background.tiff"
 
 # 4. Create a read-write DMG
 detach_stale
@@ -51,8 +53,8 @@ DEVICE="$(echo "${ATTACH}" | grep -E '^/dev/' | head -1 | awk '{print $1}')"
 MOUNT="$(echo "${ATTACH}" | sed -nE 's/.*(\/Volumes\/.*)$/\1/p' | head -1)"
 VOL="$(basename "${MOUNT}")"
 
-# Hide the background file so it never shows as an item.
-chflags hidden "${MOUNT}/.background.tiff"
+# Hide the background folder so it never shows as an item.
+chflags hidden "${MOUNT}/.background"
 
 # Give Finder a moment to register the freshly mounted volume.
 sleep 2
@@ -71,13 +73,13 @@ tell application "Finder"
         set arrangement of opts to not arranged
         set icon size of opts to 128
         set text size of opts to 13
-        set background picture of opts to file ".background.tiff"
+        set background picture of opts to file ".background:background.tiff"
         set position of item "${APP_BUNDLE}" of container window to {155, 175}
         set position of item "Applications" of container window to {445, 175}
-        -- Tuck the (hidden) background file away. Wrapped in try because
+        -- Tuck the (hidden) background folder away. Wrapped in try because
         -- Finder omits it when hidden files aren't being shown.
         try
-            set position of item ".background.tiff" of container window to {300, 300}
+            set position of item ".background" of container window to {300, 305}
         end try
         update without registering applications
         delay 3
