@@ -44,11 +44,18 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 
 1. Open the [**Releases**](../../releases) page and download the latest
    `MacResourceWidget.dmg`.
-2. Open the DMG and drag **MacResourceWidget.app** onto the Applications
+2. Open the DMG and drag **Mac Resource Widget.app** onto the Applications
    shortcut.
 3. Launch it from Applications.
 4. To start it automatically, add the app under
    **System Settings → General → Login Items**.
+
+Each release also ships a `MacResourceWidget.dmg.sha256` checksum. To verify
+the download is intact, put both files in the same folder and run:
+
+```sh
+shasum -a 256 -c MacResourceWidget.dmg.sha256
+```
 
 > **First launch:** the app is ad-hoc signed (it has no paid Apple Developer
 > ID), so macOS Gatekeeper blocks it the first time. Right-click the app →
