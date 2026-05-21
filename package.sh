@@ -51,6 +51,11 @@ echo "▶ Styling DMG window..."
 ATTACH="$(hdiutil attach "${RW_DMG}" -noautoopen -noverify)"
 DEVICE="$(echo "${ATTACH}" | grep -E '^/dev/' | head -1 | awk '{print $1}')"
 MOUNT="$(echo "${ATTACH}" | sed -nE 's/.*(\/Volumes\/.*)$/\1/p' | head -1)"
+
+# Fail closed: never run destructive steps below on an empty/wrong path.
+[[ "${DEVICE}" == /dev/* ]] || { echo "✗ could not determine DMG device"; exit 1; }
+[[ -n "${MOUNT}" && -d "${MOUNT}" && "${MOUNT}" == /Volumes/* ]] \
+    || { echo "✗ could not determine DMG mount point"; exit 1; }
 VOL="$(basename "${MOUNT}")"
 
 # Hide the background folder so it never shows as an item.
@@ -59,33 +64,38 @@ chflags hidden "${MOUNT}/.background"
 # Give Finder a moment to register the freshly mounted volume.
 sleep 2
 
-# 6. Lay out the window with Finder
-osascript <<EOF
-tell application "Finder"
-    tell disk "${VOL}"
-        open
-        delay 1
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {200, 120, 800, 548}
-        set opts to the icon view options of container window
-        set arrangement of opts to not arranged
-        set icon size of opts to 128
-        set text size of opts to 13
-        set background picture of opts to file ".background:background.tiff"
-        set position of item "${APP_BUNDLE}" of container window to {155, 175}
-        set position of item "Applications" of container window to {445, 175}
-        -- Tuck the (hidden) background folder away. Wrapped in try because
-        -- Finder omits it when hidden files aren't being shown.
-        try
-            set position of item ".background" of container window to {300, 305}
-        end try
-        update without registering applications
-        delay 3
-        close
+# 6. Lay out the window with Finder. Values are passed as arguments (not
+# interpolated into the script body) so they are treated as data, never code.
+osascript - "${VOL}" "${APP_BUNDLE}" <<'EOF'
+on run argv
+    set volName to item 1 of argv
+    set appName to item 2 of argv
+    tell application "Finder"
+        tell disk volName
+            open
+            delay 1
+            set current view of container window to icon view
+            set toolbar visible of container window to false
+            set statusbar visible of container window to false
+            set the bounds of container window to {200, 120, 800, 548}
+            set opts to the icon view options of container window
+            set arrangement of opts to not arranged
+            set icon size of opts to 128
+            set text size of opts to 13
+            set background picture of opts to file ".background:background.tiff"
+            set position of item appName of container window to {155, 175}
+            set position of item "Applications" of container window to {445, 175}
+            -- Tuck the (hidden) background folder away. Wrapped in try because
+            -- Finder omits it when hidden files aren't being shown.
+            try
+                set position of item ".background" of container window to {300, 305}
+            end try
+            update without registering applications
+            delay 3
+            close
+        end tell
     end tell
-end tell
+end run
 EOF
 
 sync

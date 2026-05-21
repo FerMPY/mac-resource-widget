@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restoreTopLeft() -> NSPoint? {
         guard let s = UserDefaults.standard.string(forKey: posKey) else { return nil }
         let p = s.split(separator: ",").compactMap { Double($0) }
-        guard p.count == 2 else { return nil }
+        guard p.count == 2, p[0].isFinite, p[1].isFinite else { return nil }
         return NSPoint(x: p[0], y: p[1])
     }
 
@@ -188,7 +188,8 @@ final class WidgetWindow: NSWindow {
     override var canBecomeMain: Bool { false }
 
     override func rightMouseDown(with event: NSEvent) {
-        guard let delegate = NSApp.delegate as? AppDelegate else { return }
+        guard let delegate = NSApp.delegate as? AppDelegate,
+              let contentView = self.contentView else { return }
         let menu = NSMenu()
 
         let prefsItem = NSMenuItem(title: "Edit Widget…",
@@ -227,6 +228,6 @@ final class WidgetWindow: NSWindow {
         quitItem.target = delegate
         menu.addItem(quitItem)
 
-        NSMenu.popUpContextMenu(menu, with: event, for: self.contentView!)
+        NSMenu.popUpContextMenu(menu, with: event, for: contentView)
     }
 }

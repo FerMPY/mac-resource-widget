@@ -5,11 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Show Swift version
         run: swift --version
