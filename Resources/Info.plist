@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>MacResourceWidget</string>
+    <string>Mac Resource Widget</string>
     <key>CFBundleDisplayName</key>
     <string>Mac Resource Widget</string>
     <key>CFBundleIdentifier</key>
