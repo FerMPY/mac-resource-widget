@@ -3,6 +3,7 @@ import AppKit
 
 struct PreferencesView: View {
     @ObservedObject var settings = Settings.shared
+    @ObservedObject var energy = EnergyViewModel.shared
 
     var body: some View {
         Form {
@@ -90,10 +91,47 @@ struct PreferencesView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.vertical, 2)
+
+                if energy.usage.available {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label("Energy used since launch", systemImage: "bolt.fill")
+                            .font(.callout.weight(.medium))
+                        Text(energySummary)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 2)
+                }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 760)
+        .frame(width: 380, height: 810)
+    }
+
+    // MARK: - Energy readout
+
+    private var energySummary: String {
+        let u = energy.usage
+        let mWh = u.joules / 3.6
+        let energyText = mWh < 1
+            ? String(format: "%.0f J", u.joules)
+            : String(format: "%.1f mWh", mWh)
+        var parts = [energyText, uptimeText(u.uptime)]
+        if let pct = u.batteryPercent {
+            parts.append(pct < 0.01
+                ? "<0.01% of a charge"
+                : String(format: "%.2f%% of a charge", pct))
+        }
+        return parts.joined(separator: "  ·  ")
+    }
+
+    private func uptimeText(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        if h > 0 { return "\(h)h \(m)m" }
+        if m > 0 { return "\(m)m" }
+        return "\(total)s"
     }
 
     private static var appVersion: String {
@@ -112,7 +150,7 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Mac Resource Widget — Preferences"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 380, height: 760))
+        window.setContentSize(NSSize(width: 380, height: 810))
         window.center()
         self.init(window: window)
         window.delegate = self
@@ -121,12 +159,14 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     func show() {
         // Briefly bring the app forward so the window can receive focus,
         // then drop back to accessory so we still have no dock icon.
+        EnergyViewModel.shared.start()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
 
     func windowWillClose(_ notification: Notification) {
+        EnergyViewModel.shared.stop()
         NSApp.setActivationPolicy(.accessory)
     }
 }

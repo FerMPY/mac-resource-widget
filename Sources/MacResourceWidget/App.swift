@@ -23,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var desiredTopLeft: NSPoint = .zero
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = EnergyTracker.launchDate   // pin the launch time now
+
         let host = WidgetHostingController(rootView: WidgetView(model: model))
         host.sizingOptions = [.preferredContentSize]
 
