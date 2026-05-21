@@ -56,9 +56,49 @@ struct PreferencesView: View {
                         .frame(width: 38, alignment: .trailing)
                 }
             }
+
+            Section("About") {
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Mac Resource Widget")
+                            .font(.headline)
+                        Text("Version \(Self.appVersion)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("Open source · MIT License")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("Power efficient", systemImage: "leaf.fill")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.green)
+                    Text("Polling stops completely when the widget is hidden "
+                       + "behind other windows or the display sleeps, and "
+                       + "slows down on battery — so it costs almost nothing "
+                       + "to leave running all day.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 2)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 610)
+        .frame(width: 380, height: 760)
+    }
+
+    private static var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        return v ?? "1.0"
     }
 }
 
@@ -72,7 +112,7 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Mac Resource Widget — Preferences"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 380, height: 610))
+        window.setContentSize(NSSize(width: 380, height: 760))
         window.center()
         self.init(window: window)
         window.delegate = self

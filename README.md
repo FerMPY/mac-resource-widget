@@ -97,9 +97,9 @@ install it like a normal app. The payoff: the numbers are genuinely live.
 
 ### Does it drain battery or slow down my Mac?
 
-Very little. It reads cheap kernel counters, and it is battery-aware: polling
-pauses entirely when the widget is hidden behind other windows or the display
-sleeps, and it slows down on battery power.
+Very little — it is specifically designed not to. Polling stops completely
+whenever the widget is hidden or the display sleeps. See
+[Power efficiency](#power-efficiency) for the full breakdown.
 
 ### Why does macOS say it can't verify the app?
 
@@ -125,6 +125,28 @@ Pure Swift, no third-party dependencies:
 The widget is a borderless, normal-level `NSWindow` with the `.stationary`
 collection behavior — that combination keeps it clickable while making window
 management (Mission Control, Stage Manager, Exposé) treat it like the desktop.
+
+## Power efficiency
+
+A monitor you leave running all day shouldn't itself be a drain. The widget is
+built to cost almost nothing when you aren't looking at it:
+
+- **Pauses when hidden.** The instant the widget is fully covered by other
+  windows, polling stops entirely — no timers, no CPU wakeups. It resumes the
+  moment any part of it is visible again. Since the widget normally sits behind
+  your app windows, this is the common case.
+- **Pauses when the display sleeps.** When the screen sleeps, polling stops
+  until it wakes.
+- **Throttles on battery.** On battery power the refresh interval automatically
+  slows down (configurable under *Edit Widget → Refresh*).
+- **Skips idle redraws.** Metric values are quantized to display precision and
+  the snapshot is compared before publishing, so an idle system triggers no
+  SwiftUI re-renders at all.
+- **Cheap data sources.** Metrics come from lightweight Mach and `sysctl`
+  kernel counters — no polling subprocesses spinning in the background.
+
+The net effect: with the widget covered by your apps for most of the day, it
+does measurable work only for the seconds it is actually on screen.
 
 ## Known limitations
 
