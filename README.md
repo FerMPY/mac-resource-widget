@@ -40,32 +40,31 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 
 ## Install
 
-### From a release DMG
+### Download (recommended)
 
-Open the `.dmg` and drag **MacResourceWidget.app** onto the Applications
-shortcut.
+1. Open the [**Releases**](../../releases) page and download the latest
+   `MacResourceWidget.dmg`.
+2. Open the DMG and drag **MacResourceWidget.app** onto the Applications
+   shortcut.
+3. Launch it from Applications.
+4. To start it automatically, add the app under
+   **System Settings → General → Login Items**.
 
-> The app is ad-hoc signed (no paid Apple Developer ID), so on first launch
-> Gatekeeper will block it. Right-click the app → **Open**, or allow it under
-> **System Settings → Privacy & Security**. You only need to do this once.
+> **First launch:** the app is ad-hoc signed (it has no paid Apple Developer
+> ID), so macOS Gatekeeper blocks it the first time. Right-click the app →
+> **Open** and confirm — or allow it under **System Settings → Privacy &
+> Security**. You only need to do this once. See the [FAQ](#faq) for why.
 
-### Build it yourself
+### Build from source
 
 ```sh
 git clone <repo-url>
 cd mac-resource-widget
-./build.sh           # produces MacResourceWidget.app
+./build.sh           # compiles and assembles MacResourceWidget.app
 open MacResourceWidget.app
 ```
 
-To produce a distributable installer:
-
-```sh
-./package.sh         # produces MacResourceWidget.dmg
-```
-
-To launch automatically at login, add the app under
-**System Settings → General → Login Items**.
+`./package.sh` produces a distributable `MacResourceWidget.dmg`.
 
 ## Usage
 
@@ -76,6 +75,38 @@ To launch automatically at login, add the app under
   - **Compact Mode** — single-line layout
   - **Always on Top** — float above all windows instead of sitting behind them
   - **Quit**
+
+## FAQ
+
+### Why isn't this a Notification Center or desktop widget?
+
+The widgets in Notification Center — and the ones you can drag onto the
+desktop in macOS Sonoma and later — are all built with Apple's **WidgetKit**.
+WidgetKit widgets don't run continuously. Each one hands the system a
+*timeline* of pre-rendered snapshots, and **the OS decides when to refresh
+them** — usually minutes apart, and throttled hard to protect battery.
+
+That model is perfect for slow-moving data like weather, calendar or
+reminders. It is fundamentally wrong for a system monitor: a CPU or network
+graph that only updates every 5–15 minutes tells you nothing useful.
+
+So Mac Resource Widget is deliberately **not** a WidgetKit widget. It is a
+small standalone app with its own always-running window that polls every 1–5
+seconds. The tradeoff: it doesn't appear in the macOS widget gallery, and you
+install it like a normal app. The payoff: the numbers are genuinely live.
+
+### Does it drain battery or slow down my Mac?
+
+Very little. It reads cheap kernel counters, and it is battery-aware: polling
+pauses entirely when the widget is hidden behind other windows or the display
+sleeps, and it slows down on battery power.
+
+### Why does macOS say it can't verify the app?
+
+The app is *ad-hoc signed* — it is not signed with a paid Apple Developer ID
+and is not notarized, so Gatekeeper flags it on first launch. Right-click →
+**Open** to bypass it once. Building from source yourself avoids the warning
+entirely.
 
 ## How it works
 
