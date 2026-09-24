@@ -31,8 +31,8 @@ struct Snapshot: Equatable {
 }
 
 final class StatsCollector {
-    private var prevCPUTicks: [host_cpu_load_info] = []
-    private var prevNetBytes: (rx: UInt64, tx: UInt64)? = nil
+    private var prevCPUTicks: [[UInt32]] = []   // per core: user, system, idle, nice
+    private var prevNetCounters: [String: (rx: UInt32, tx: UInt32)] = [:]
     private var prevNetTime: TimeInterval = 0
     private let gpu = GPUSampler()
 
@@ -94,63 +94,31 @@ final class StatsCollector {
         }
 
         var perCore: [Double] = []
-        var totalUser: Double = 0, totalSys: Double = 0, totalIdle: Double = 0, totalNice: Double = 0
-        var newTicks: [host_cpu_load_info] = []
+        var newTicks: [[UInt32]] = []
+        var busyAll = 0.0, totalAll = 0.0
 
         for i in 0..<Int(numCPUs) {
             let base = i * Int(CPU_STATE_MAX)
-            let user = Double(cpuInfo[base + Int(CPU_STATE_USER)])
-            let sys = Double(cpuInfo[base + Int(CPU_STATE_SYSTEM)])
-            let idle = Double(cpuInfo[base + Int(CPU_STATE_IDLE)])
-            let nice = Double(cpuInfo[base + Int(CPU_STATE_NICE)])
-
-            var info = host_cpu_load_info()
-            info.cpu_ticks.0 = UInt32(truncatingIfNeeded: Int(user))
-            info.cpu_ticks.1 = UInt32(truncatingIfNeeded: Int(sys))
-            info.cpu_ticks.2 = UInt32(truncatingIfNeeded: Int(idle))
-            info.cpu_ticks.3 = UInt32(truncatingIfNeeded: Int(nice))
-            newTicks.append(info)
-
-            if i < prevCPUTicks.count {
-                let p = prevCPUTicks[i]
-                let dUser = user - Double(p.cpu_ticks.0)
-                let dSys = sys - Double(p.cpu_ticks.1)
-                let dIdle = idle - Double(p.cpu_ticks.2)
-                let dNice = nice - Double(p.cpu_ticks.3)
-                let total = dUser + dSys + dIdle + dNice
-                let busy = dUser + dSys + dNice
-                perCore.append(total > 0 ? (busy / total) * 100 : 0)
-            } else {
+            let ticks = [CPU_STATE_USER, CPU_STATE_SYSTEM, CPU_STATE_IDLE, CPU_STATE_NICE].map {
+                UInt32(bitPattern: cpuInfo[base + Int($0)])
+            }
+            newTicks.append(ticks)
+            guard i < prevCPUTicks.count else {
                 perCore.append(0)
+                continue
             }
-
-            totalUser += user
-            totalSys += sys
-            totalIdle += idle
-            totalNice += nice
-        }
-
-        let overall: Double
-        if !prevCPUTicks.isEmpty {
-            let prevSum = prevCPUTicks.reduce((u: 0.0, s: 0.0, i: 0.0, n: 0.0)) { acc, t in
-                (acc.u + Double(t.cpu_ticks.0),
-                 acc.s + Double(t.cpu_ticks.1),
-                 acc.i + Double(t.cpu_ticks.2),
-                 acc.n + Double(t.cpu_ticks.3))
-            }
-            let dUser = totalUser - prevSum.u
-            let dSys = totalSys - prevSum.s
-            let dIdle = totalIdle - prevSum.i
-            let dNice = totalNice - prevSum.n
-            let total = dUser + dSys + dIdle + dNice
-            let busy = dUser + dSys + dNice
-            overall = total > 0 ? (busy / total) * 100 : 0
-        } else {
-            overall = 0
+            // Wrapping subtraction: the kernel's tick counters are 32-bit
+            // and wrap around after long uptimes.
+            let d = zip(ticks, prevCPUTicks[i]).map { Double($0 &- $1) }
+            let total = d.reduce(0, +)
+            let busy = total - d[2]   // everything but idle
+            perCore.append(total > 0 ? (busy / total) * 100 : 0)
+            busyAll += busy
+            totalAll += total
         }
 
         prevCPUTicks = newTicks
-        return (overall, perCore)
+        return (totalAll > 0 ? (busyAll / totalAll) * 100 : 0, perCore)
     }
 
     // MARK: - RAM
@@ -259,8 +227,11 @@ final class StatsCollector {
     // MARK: - Network
 
     private func sampleNetwork() -> (down: Double, up: Double) {
-        var rx: UInt64 = 0
-        var tx: UInt64 = 0
+        // if_data's byte counters are 32-bit and wrap every 4 GB, so deltas
+        // are taken per interface with wrapping subtraction before summing.
+        var dRx: UInt64 = 0
+        var dTx: UInt64 = 0
+        var counters: [String: (rx: UInt32, tx: UInt32)] = [:]
 
         var ifaddrPtr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddrPtr) == 0, let first = ifaddrPtr else {
@@ -278,8 +249,12 @@ final class StatsCollector {
                    !name.hasPrefix("utun") && !name.hasPrefix("awdl") && !name.hasPrefix("llw") &&
                    !name.hasPrefix("anpi") && !name.hasPrefix("ap") && !name.hasPrefix("bridge") {
                     if let data = iface.ifa_data?.assumingMemoryBound(to: if_data.self) {
-                        rx &+= UInt64(data.pointee.ifi_ibytes)
-                        tx &+= UInt64(data.pointee.ifi_obytes)
+                        let cur = (rx: data.pointee.ifi_ibytes, tx: data.pointee.ifi_obytes)
+                        counters[name] = cur
+                        if let prev = prevNetCounters[name] {
+                            dRx += UInt64(cur.rx &- prev.rx)
+                            dTx += UInt64(cur.tx &- prev.tx)
+                        }
                     }
                 }
             }
@@ -288,17 +263,13 @@ final class StatsCollector {
 
         let now = Date().timeIntervalSince1970
         defer {
-            prevNetBytes = (rx, tx)
+            prevNetCounters = counters
             prevNetTime = now
         }
-        guard let prev = prevNetBytes, prevNetTime > 0 else {
-            return (0, 0)
-        }
+        guard prevNetTime > 0 else { return (0, 0) }
         let dt = now - prevNetTime
         guard dt > 0 else { return (0, 0) }
-        let dRx = Double(rx &- prev.rx)
-        let dTx = Double(tx &- prev.tx)
-        return (dRx / dt / 1024.0, dTx / dt / 1024.0)
+        return (Double(dRx) / dt / 1024.0, Double(dTx) / dt / 1024.0)
     }
 
     // MARK: - Battery
@@ -313,8 +284,9 @@ final class StatsCollector {
             else { continue }
             if let current = desc[kIOPSCurrentCapacityKey] as? Int,
                let max = desc[kIOPSMaxCapacityKey] as? Int, max > 0 {
-                let state = desc[kIOPSPowerSourceStateKey] as? String
-                let charging = (state == kIOPSACPowerValue)
+                // Actually charging — not merely plugged in (a full battery
+                // on AC reports false).
+                let charging = desc[kIOPSIsChargingKey] as? Bool ?? false
                 return (Double(current) / Double(max) * 100, charging)
             }
         }

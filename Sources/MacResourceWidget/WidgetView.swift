@@ -68,9 +68,15 @@ final class StatsViewModel: ObservableObject {
     private var shouldPoll: Bool { isVisible && isScreenAwake }
 
     private func applyPollingState() {
+        let wasPolling = timer != nil
         timer?.invalidate()
         timer = nil
         guard shouldPoll else { return }
+        // Re-baseline after a pause so the first reading covers one refresh
+        // interval, not the whole time the widget was hidden.
+        if !wasPolling {
+            _ = collector.sample()
+        }
         let t = Timer.scheduledTimer(withTimeInterval: effectiveInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             let s = self.collector.sample()
@@ -83,6 +89,8 @@ final class StatsViewModel: ObservableObject {
                 }
             }
         }
+        // Lets macOS coalesce the wakeup with other work.
+        t.tolerance = effectiveInterval * 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t
     }

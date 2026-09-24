@@ -82,6 +82,7 @@ final class EnergyViewModel: ObservableObject {
             let u = EnergyTracker.sample()
             DispatchQueue.main.async { self?.usage = u }
         }
+        t.tolerance = 0.3
         RunLoop.main.add(t, forMode: .common)
         timer = t
     }

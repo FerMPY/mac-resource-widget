@@ -22,6 +22,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // the top edge stable instead of the (Cocoa-default) bottom edge.
     private var desiredTopLeft: NSPoint = .zero
 
+    // The widget hides while another app is full screen on its display
+    // (e.g. a browser video). .canJoinAllSpaces otherwise lets it follow
+    // into full-screen Spaces and show over the content, in either level.
+    private var hiddenForFullScreen = false
+    private var fullScreenTimer: Timer?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = EnergyTracker.launchDate   // pin the launch time now
 
@@ -56,15 +62,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(windowResignedKey),
                                                name: NSWindow.didResignKeyNotification, object: window)
 
+        // Entering/leaving a native full-screen Space switches the active
+        // Space; the poll timer in updateFullScreenWatch() covers browsers
+        // whose full-screen video stays in the current Space.
+        let wnc = NSWorkspace.shared.notificationCenter
+        wnc.addObserver(self, selector: #selector(updateFullScreenVisibility),
+                        name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        wnc.addObserver(self, selector: #selector(updateFullScreenVisibility),
+                        name: NSWorkspace.didActivateApplicationNotification, object: nil)
+
         window.orderFront(nil)
         applyLevel()
         repositionToDesired()
 
         model.setVisible(window.occlusionState.contains(.visible))
+        updateFullScreenVisibility()
+        updateFullScreenWatch()
     }
 
     @objc private func occlusionChanged() {
         model.setVisible(window.occlusionState.contains(.visible))
+        updateFullScreenWatch()
     }
 
     // MARK: - Positioning
@@ -134,8 +152,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // widget. A normal window that sinks to the back stays genuinely
             // clickable while still sitting behind your app windows.
             window.level = .normal
+            if !hiddenForFullScreen {
+                window.orderBack(nil)
+            }
+        }
+    }
+
+    // MARK: - Full-screen apps
+
+    /// Polls for full-screen apps only while the widget is on screen (it is
+    /// already polling stats then) or hidden for one (to notice it ending).
+    /// Covered behind app windows — the common case — nothing runs.
+    private func updateFullScreenWatch() {
+        let needed = hiddenForFullScreen || window.occlusionState.contains(.visible)
+        if needed, fullScreenTimer == nil {
+            let t = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.updateFullScreenVisibility()
+            }
+            t.tolerance = 0.5
+            fullScreenTimer = t
+        } else if !needed {
+            fullScreenTimer?.invalidate()
+            fullScreenTimer = nil
+        }
+    }
+
+    @objc private func updateFullScreenVisibility() {
+        // Resolve the screen from the frame: window.screen is unreliable
+        // while the window is ordered out.
+        let center = NSPoint(x: window.frame.midX, y: window.frame.midY)
+        let screen = NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
+        let covered = screen.map(FullScreenDetector.isOtherAppFullScreen(on:)) ?? false
+        guard covered != hiddenForFullScreen else { return }
+        hiddenForFullScreen = covered
+        if covered {
+            window.orderOut(nil)
+            model.setVisible(false)
+        } else if Settings.shared.alwaysOnTop {
+            window.orderFront(nil)
+        } else {
             window.orderBack(nil)
         }
+        // Keep the timer alive while hidden, since occlusion no longer changes.
+        updateFullScreenWatch()
     }
 
     // MARK: - Menu actions

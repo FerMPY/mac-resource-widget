@@ -26,7 +26,8 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 - **Battery-aware** — pauses polling when the widget is covered or the display
   sleeps; throttles refresh on battery
 - **Stays out of the way** — excluded from Mission Control, Stage Manager and
-  ⌘-Tab; sits behind your app windows (or pin it always-on-top)
+  ⌘-Tab; sits behind your app windows (or pin it always-on-top), and hides
+  while another app is full screen, such as a browser video
 - **Customizable** — toggle any metric, pick refresh rate, color theme and
   background opacity
 - **No dependencies** — pure Swift + AppKit + SwiftUI
@@ -34,8 +35,9 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Apple Silicon recommended — GPU utilization is read from the Apple Silicon
-  `IOAccelerator` registry; Intel GPUs may report under a different key
+- Apple Silicon or Intel (universal binary). GPU utilization is read from the
+  `IOAccelerator` registry, tuned for Apple Silicon; Intel GPUs may report
+  under a different key
 - To build: the Swift toolchain (Xcode or the Command Line Tools)
 
 ## Install
