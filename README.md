@@ -26,7 +26,8 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 - **Battery-aware** — pauses polling when the widget is covered or the display
   sleeps; throttles refresh on battery
 - **Stays out of the way** — excluded from Mission Control, Stage Manager and
-  ⌘-Tab; sits behind your app windows (or pin it always-on-top)
+  ⌘-Tab; sits behind your app windows (or pin it always-on-top), and hides
+  while another app is full screen, such as a browser video
 - **Customizable** — toggle any metric, pick refresh rate, color theme and
   background opacity
 - **No dependencies** — pure Swift + AppKit + SwiftUI
@@ -81,7 +82,6 @@ open "Mac Resource Widget.app"
   - **Open Activity Monitor**
   - **Compact Mode** — single-line layout
   - **Always on Top** — float above all windows instead of sitting behind them
-    (it hides itself while another app is full screen, e.g. a browser video)
   - **Quit**
 
 ## FAQ

@@ -22,8 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // the top edge stable instead of the (Cocoa-default) bottom edge.
     private var desiredTopLeft: NSPoint = .zero
 
-    // Always-on-top mode hides the widget while another app is full screen
-    // on its display (e.g. a browser video), so it never floats over it.
+    // The widget hides while another app is full screen on its display
+    // (e.g. a browser video). .canJoinAllSpaces otherwise lets it follow
+    // into full-screen Spaces and show over the content, in either level.
     private var hiddenForFullScreen = false
     private var fullScreenTimer: Timer?
 
@@ -62,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                name: NSWindow.didResignKeyNotification, object: window)
 
         // Entering/leaving a native full-screen Space switches the active
-        // Space; the poll timer in startFullScreenWatch() covers browsers
+        // Space; the poll timer in updateFullScreenWatch() covers browsers
         // whose full-screen video stays in the current Space.
         let wnc = NSWorkspace.shared.notificationCenter
         wnc.addObserver(self, selector: #selector(updateFullScreenVisibility),
@@ -75,10 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         repositionToDesired()
 
         model.setVisible(window.occlusionState.contains(.visible))
+        updateFullScreenVisibility()
+        updateFullScreenWatch()
     }
 
     @objc private func occlusionChanged() {
         model.setVisible(window.occlusionState.contains(.visible))
+        updateFullScreenWatch()
     }
 
     // MARK: - Positioning
@@ -140,9 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     fileprivate func applyLevel() {
         if Settings.shared.alwaysOnTop {
             window.level = .floating
-            startFullScreenWatch()
         } else {
-            stopFullScreenWatch()
             // A normal-level window ordered behind the others. The desktop-
             // icon level looks more "on the desktop" but the OS treats that
             // whole layer as the desktop itself — clicks (especially after
@@ -150,31 +152,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // widget. A normal window that sinks to the back stays genuinely
             // clickable while still sitting behind your app windows.
             window.level = .normal
-            window.orderBack(nil)
+            if !hiddenForFullScreen {
+                window.orderBack(nil)
+            }
         }
     }
 
     // MARK: - Full-screen apps
 
-    private func startFullScreenWatch() {
-        fullScreenTimer?.invalidate()
-        let t = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.updateFullScreenVisibility()
+    /// Polls for full-screen apps only while the widget is on screen (it is
+    /// already polling stats then) or hidden for one (to notice it ending).
+    /// Covered behind app windows — the common case — nothing runs.
+    private func updateFullScreenWatch() {
+        let needed = hiddenForFullScreen || window.occlusionState.contains(.visible)
+        if needed, fullScreenTimer == nil {
+            let t = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.updateFullScreenVisibility()
+            }
+            t.tolerance = 0.5
+            fullScreenTimer = t
+        } else if !needed {
+            fullScreenTimer?.invalidate()
+            fullScreenTimer = nil
         }
-        t.tolerance = 0.5
-        fullScreenTimer = t
-        updateFullScreenVisibility()
-    }
-
-    private func stopFullScreenWatch() {
-        fullScreenTimer?.invalidate()
-        fullScreenTimer = nil
-        // The caller re-orders the window in, so just clear the flag.
-        hiddenForFullScreen = false
     }
 
     @objc private func updateFullScreenVisibility() {
-        guard Settings.shared.alwaysOnTop else { return }
         // Resolve the screen from the frame: window.screen is unreliable
         // while the window is ordered out.
         let center = NSPoint(x: window.frame.midX, y: window.frame.midY)
@@ -185,10 +188,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if covered {
             window.orderOut(nil)
             model.setVisible(false)
-        } else {
+        } else if Settings.shared.alwaysOnTop {
             window.orderFront(nil)
-            model.setVisible(window.occlusionState.contains(.visible))
+        } else {
+            window.orderBack(nil)
         }
+        // Keep the timer alive while hidden, since occlusion no longer changes.
+        updateFullScreenWatch()
     }
 
     // MARK: - Menu actions
