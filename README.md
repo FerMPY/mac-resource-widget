@@ -35,8 +35,9 @@ windows like a piece of desktop furniture. No Dock icon, no menu-bar clutter.
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Apple Silicon recommended — GPU utilization is read from the Apple Silicon
-  `IOAccelerator` registry; Intel GPUs may report under a different key
+- Apple Silicon or Intel (universal binary). GPU utilization is read from the
+  `IOAccelerator` registry, tuned for Apple Silicon; Intel GPUs may report
+  under a different key
 - To build: the Swift toolchain (Xcode or the Command Line Tools)
 
 ## Install

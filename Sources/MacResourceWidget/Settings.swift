@@ -32,10 +32,16 @@ final class Settings: ObservableObject {
 
     // Persisted via property observers below.
     @Published var refreshRate: RefreshRate {
-        didSet { d.set(refreshRate.rawValue, forKey: K.refresh) }
+        didSet {
+            d.set(refreshRate.rawValue, forKey: K.refresh)
+            NotificationCenter.default.post(name: .settingsRefreshChanged, object: nil)
+        }
     }
     @Published var throttleOnBattery: Bool {
-        didSet { d.set(throttleOnBattery, forKey: K.throttle) }
+        didSet {
+            d.set(throttleOnBattery, forKey: K.throttle)
+            NotificationCenter.default.post(name: .settingsRefreshChanged, object: nil)
+        }
     }
     @Published var showCPU: Bool { didSet { d.set(showCPU, forKey: K.showCPU) } }
     @Published var showPerCore: Bool { didSet { d.set(showPerCore, forKey: K.showPerCore) } }

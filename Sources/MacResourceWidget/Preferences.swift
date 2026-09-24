@@ -26,13 +26,7 @@ struct PreferencesView: View {
                         Text(r.label).tag(r)
                     }
                 }
-                .onChange(of: settings.refreshRate) { _, _ in
-                    NotificationCenter.default.post(name: .settingsRefreshChanged, object: nil)
-                }
                 Toggle("Slow down to ≥2s on battery", isOn: $settings.throttleOnBattery)
-                    .onChange(of: settings.throttleOnBattery) { _, _ in
-                        NotificationCenter.default.post(name: .settingsRefreshChanged, object: nil)
-                    }
             }
 
             Section("Layout") {
