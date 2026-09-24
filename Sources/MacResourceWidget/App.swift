@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // the top edge stable instead of the (Cocoa-default) bottom edge.
     private var desiredTopLeft: NSPoint = .zero
 
+    // Always-on-top mode hides the widget while another app is full screen
+    // on its display (e.g. a browser video), so it never floats over it.
+    private var hiddenForFullScreen = false
+    private var fullScreenTimer: Timer?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = EnergyTracker.launchDate   // pin the launch time now
 
@@ -55,6 +60,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                name: .settingsWindowLevelChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowResignedKey),
                                                name: NSWindow.didResignKeyNotification, object: window)
+
+        // Entering/leaving a native full-screen Space switches the active
+        // Space; the poll timer in startFullScreenWatch() covers browsers
+        // whose full-screen video stays in the current Space.
+        let wnc = NSWorkspace.shared.notificationCenter
+        wnc.addObserver(self, selector: #selector(updateFullScreenVisibility),
+                        name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        wnc.addObserver(self, selector: #selector(updateFullScreenVisibility),
+                        name: NSWorkspace.didActivateApplicationNotification, object: nil)
 
         window.orderFront(nil)
         applyLevel()
@@ -126,7 +140,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     fileprivate func applyLevel() {
         if Settings.shared.alwaysOnTop {
             window.level = .floating
+            startFullScreenWatch()
         } else {
+            stopFullScreenWatch()
             // A normal-level window ordered behind the others. The desktop-
             // icon level looks more "on the desktop" but the OS treats that
             // whole layer as the desktop itself — clicks (especially after
@@ -135,6 +151,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // clickable while still sitting behind your app windows.
             window.level = .normal
             window.orderBack(nil)
+        }
+    }
+
+    // MARK: - Full-screen apps
+
+    private func startFullScreenWatch() {
+        fullScreenTimer?.invalidate()
+        let t = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.updateFullScreenVisibility()
+        }
+        t.tolerance = 0.5
+        fullScreenTimer = t
+        updateFullScreenVisibility()
+    }
+
+    private func stopFullScreenWatch() {
+        fullScreenTimer?.invalidate()
+        fullScreenTimer = nil
+        // The caller re-orders the window in, so just clear the flag.
+        hiddenForFullScreen = false
+    }
+
+    @objc private func updateFullScreenVisibility() {
+        guard Settings.shared.alwaysOnTop else { return }
+        // Resolve the screen from the frame: window.screen is unreliable
+        // while the window is ordered out.
+        let center = NSPoint(x: window.frame.midX, y: window.frame.midY)
+        let screen = NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
+        let covered = screen.map(FullScreenDetector.isOtherAppFullScreen(on:)) ?? false
+        guard covered != hiddenForFullScreen else { return }
+        hiddenForFullScreen = covered
+        if covered {
+            window.orderOut(nil)
+            model.setVisible(false)
+        } else {
+            window.orderFront(nil)
+            model.setVisible(window.occlusionState.contains(.visible))
         }
     }
 

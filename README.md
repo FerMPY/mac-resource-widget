@@ -81,6 +81,7 @@ open "Mac Resource Widget.app"
   - **Open Activity Monitor**
   - **Compact Mode** — single-line layout
   - **Always on Top** — float above all windows instead of sitting behind them
+    (it hides itself while another app is full screen, e.g. a browser video)
   - **Quit**
 
 ## FAQ
